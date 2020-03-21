@@ -214,8 +214,6 @@ function handleRemoteStreamAdded(event, userId) {
     if (userInfo == currUserInfo) {
         video.muted = true;
     }
-
-
     nameEle.className = 'username';
     nameEle.innerText = userInfo.userName;
     container.className = 'video-container';
