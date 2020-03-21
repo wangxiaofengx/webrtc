@@ -210,12 +210,15 @@ function handleRemoteStreamAdded(event, userId) {
     video.srcObject = event.stream;
     video.autoplay = true;
     video.id = event.stream.id;
+    video.playsinline = true;
+    if (userInfo == currUserInfo) {
+        video.muted = true;
+    }
 
-    container.className = 'video-container';
+
     nameEle.className = 'username';
-
     nameEle.innerText = userInfo.userName;
-
+    container.className = 'video-container';
     container.appendChild(video);
     container.appendChild(nameEle);
     document.getElementById('videos').appendChild(container);
