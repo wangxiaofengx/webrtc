@@ -8,18 +8,15 @@ var msgTxt = document.querySelector('#msgTxt');
 var title = document.title;
 var connectConfig = {
     "iceServers": [{
-        "url": "stun:47.111.113.130"
+        "url": "stun:olddriver.online"
     }, {
-        "url": "turn:47.111.113.130", username: "mrwang", credential: "wangxiaofeng"
+        "url": "turn:olddriver.online", username: "olddriver", credential: "olddriver"
     }]
 };
 var headPhoto = ['images/heisenberg.png', 'images/heisenberg.png', 'images/haha.gif', 'images/mj.gif', 'images/yaseng.png'];
 
-//connectConfig = {"iceServers": [{"url" : "stun:47.111.113.130"}]};
-
 var room = 'online';
-var url = (location.protocol == 'https:' ? 'wss://' : 'ws://') + location.host + '/websocket/' + room;
-url = 'wss://www.wellsmitch.top:4443/websocket/online';
+var url = (location.protocol == 'https:' ? 'wss://' : 'ws://') + location.host + '/chat/websocket/' + room;
 var socket = new WebSocket(url);
 
 socket.on = function (name, callback) {
@@ -42,7 +39,7 @@ socket.on('open', function (message) {
     var count = message.onlineCount;
     var userInfo = currUserInfo = message.userInfo;
     userInfo.portrait = headPhoto[Math.round(Math.random() * (headPhoto.length - 1))];
-    receiveMessage(currUserInfo, '欢迎加入激情聊天室！');
+    receiveMessage(currUserInfo, '欢迎加入聊天室！');
     console.log("online number:", count);
     console.log('curr user info :', userInfo);
     document.title = title + ' (' + count + ')';
