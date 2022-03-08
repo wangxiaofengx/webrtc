@@ -17,80 +17,81 @@ var headPhoto = ['images/heisenberg.png', 'images/heisenberg.png', 'images/haha.
 
 var room = 'online';
 var url = (location.protocol == 'https:' ? 'wss://' : 'ws://') + location.host + '/chat/websocket/' + room;
-var socket = new WebSocket(url);
+var socket;
 
-socket.on = function (name, callback) {
-    if (!this.event) {
-        this.event = {};
-    }
-    this.event[name] = callback;
-};
+function createWebSocket() {
+    socket = new WebSocket(url);
 
-socket.onmessage = function (message) {
-    var data = JSON.parse(message.data);
-    this.event[data.event](data.message, data.userInfo);
-};
+    socket.on = function (name, callback) {
+        if (!this.event) {
+            this.event = {};
+        }
+        this.event[name] = callback;
+    };
 
-socket.emit = function (name, message, sendTo) {
-    this.send(JSON.stringify({'event': name, 'message': message, 'userInfo': currUserInfo, 'sendTo': sendTo}));
-};
+    socket.onmessage = function (message) {
+        var data = JSON.parse(message.data);
+        this.event[data.event] && this.event[data.event](data.message, data.userInfo);
+    };
 
-socket.on('open', function (message) {
-    var count = message.onlineCount;
-    var userInfo = currUserInfo = message.userInfo;
-    userInfo.portrait = headPhoto[Math.round(Math.random() * (headPhoto.length - 1))];
-    receiveMessage(currUserInfo, '欢迎加入聊天室！');
-    console.log("online number:", count);
-    console.log('curr user info :', userInfo);
-    document.title = title + ' (' + count + ')';
-    initAudio();
-});
+    socket.emit = function (type, message, sendTo) {
+        this.send(JSON.stringify({'event': type, 'message': message, 'userInfo': currUserInfo, 'sendTo': sendTo}));
+    };
 
-socket.on('join', function (message, userInfo) {
-    receiveMessage(userInfo, '进入房间');
-    addUser(userInfo);
-    doCall(userInfo);
-    document.title = title + ' (' + (Object.keys(allUserInfo).length + 1) + ')';
-});
-
-socket.on('leave', function (message) {
-    var userInfo = getUser(message.userInfo.userId);
-    if (!userInfo) return;
-    receiveMessage(userInfo, '离开房间');
-    delUser(userInfo.userId);
-    userInfo.connect.getRemoteStreams().forEach(function (stream) {
-        document.getElementById(stream.id).parentElement.remove();
+    socket.on('open', function (message) {
+        var count = message.onlineCount;
+        var userInfo = currUserInfo = message.userInfo;
+        userInfo.portrait = headPhoto[Math.round(Math.random() * (headPhoto.length - 1))];
+        receiveMessage(currUserInfo, '欢迎加入聊天室！');
+        console.log("online number:", count);
+        console.log('curr user info :', userInfo);
+        document.title = title + ' (' + count + ')';
+        initAudio();
     });
-    userInfo.dataChannel && userInfo.dataChannel.close();
-    userInfo.connect && userInfo.connect.close();
 
-});
-
-// This client receives a message
-socket.on('message', function (message, userInfo) {
-    console.log('Client received message:', message, userInfo);
-    var userId = userInfo.userId;
-    if (message.type === 'offer') {
-        console.log("received offer");
+    socket.on('join', function (message, userInfo) {
+        receiveMessage(userInfo, '进入房间');
         addUser(userInfo);
-        getConnect(userId).setRemoteDescription(new RTCSessionDescription(message));
-        doAnswer(userInfo);
-    } else if (message.type === 'answer') {
-        console.log("received answer");
-        getConnect(userId).setRemoteDescription(new RTCSessionDescription(message));
-    } else if (message.type === 'candidate') {
-        var candidate = new RTCIceCandidate({
-            sdpMLineIndex: message.label,
-            candidate: message.candidate
+        doCall(userInfo);
+        document.title = title + ' (' + (Object.keys(allUserInfo).length + 1) + ')';
+    });
+
+    socket.on('leave', function (message) {
+        var userInfo = getUser(message.userInfo.userId);
+        if (!userInfo) return;
+        receiveMessage(userInfo, '离开房间');
+        delUser(userInfo.userId);
+        userInfo.connect.getRemoteStreams().forEach(function (stream) {
+            document.getElementById(stream.id).parentElement.remove();
         });
-        getUser(userId).connect.addIceCandidate(candidate);
-    }
-});
+        userInfo.dataChannel && userInfo.dataChannel.close();
+        userInfo.connect && userInfo.connect.close();
 
+    });
 
-function sendServerMessage(message, name, sendTo) {
+    socket.on('rtc', function (message, userInfo) {
+        console.log('Client received message:', message, userInfo);
+        var userId = userInfo.userId;
+        if (message.type === 'offer') {
+            console.log("received offer");
+            addUser(userInfo);
+            getConnect(userId).setRemoteDescription(new RTCSessionDescription(message));
+            doAnswer(userInfo);
+        } else if (message.type === 'answer') {
+            console.log("received answer");
+            getConnect(userId).setRemoteDescription(new RTCSessionDescription(message));
+        } else if (message.type === 'candidate') {
+            var candidate = new RTCIceCandidate({
+                sdpMLineIndex: message.label, candidate: message.candidate
+            });
+            getUser(userId).connect.addIceCandidate(candidate);
+        }
+    });
+}
+
+function sendServerMessage(message, type, sendTo) {
     console.log('Client sending message: ', message);
-    socket.emit(name || 'message', message, sendTo);
+    socket.emit(type, message, sendTo);
 }
 
 function gotStream(stream) {
@@ -101,8 +102,7 @@ function gotStream(stream) {
 
 function initAudio() {
     var constrains = {
-        video: true,
-        audio: true
+        video: true, audio: true
     };
     var success = gotStream;
     var error = errorStream;
@@ -128,8 +128,6 @@ function errorStream(e) {
     receiveMessage(currUserInfo, e.name);
     sendServerMessage(currUserInfo, 'join');
 }
-
-// window.addEventListener('load', initAudio);
 
 function createPeerConnection(userId) {
     try {
@@ -164,7 +162,7 @@ function handleIceCandidate(event, userId) {
             label: event.candidate.sdpMLineIndex,
             id: event.candidate.sdpMid,
             candidate: event.candidate.candidate
-        }, '', userId);
+        }, 'rtc', userId);
     } else {
         console.log('End of candidates.');
     }
@@ -180,7 +178,7 @@ function doCall(userInfo) {
     connect.createOffer().then(function (sessionDescription) {
         connect.setLocalDescription(sessionDescription);
         console.log('setLocalAndSendMessage sending message', sessionDescription);
-        sendServerMessage(sessionDescription, '', userInfo.userId);
+        sendServerMessage(sessionDescription, 'rtc', userInfo.userId);
     }, handleCreateOfferError);
 }
 
@@ -190,7 +188,7 @@ function doAnswer(userInfo) {
     connect.createAnswer().then(function (sessionDescription) {
         connect.setLocalDescription(sessionDescription);
         console.log('setLocalAndSendMessage sending message', sessionDescription);
-        sendServerMessage(sessionDescription, '', userInfo.userId);
+        sendServerMessage(sessionDescription, 'rtc', userInfo.userId);
     }, onCreateSessionDescriptionError);
 }
 
@@ -260,29 +258,34 @@ function getConnect(userId) {
     return allUserInfo[userId].connect;
 }
 
-$(msgTxt).bind('keyup', function (event) {
-    if (event.keyCode == "13") {
-        sendMessageBtn.click();
-    }
-});
+function bindBtnEvent() {
+    $(msgTxt).bind('keyup', function (event) {
+        if (event.keyCode == "13") {
+            sendMessageBtn.click();
+        }
+    });
 
-sendMessageBtn.onclick = function () {
+    sendMessageBtn.onclick = function () {
+        sendMessage(msgTxt.value);
+        receiveMessage(currUserInfo, msgTxt.value);
+        msgTxt.value = '';
+        msgTxt.focus();
+    };
+}
+
+function sendMessage(message) {
     for (var userId in allUserInfo) {
         var dataChannel = allUserInfo[userId].dataChannel;
-        if (dataChannel && dataChannel.readyState === 'open' && msgTxt.value) {
-            dataChannel.send(msgTxt.value);
+        if (dataChannel && dataChannel.readyState === 'open' && message) {
+            dataChannel.send(message);
         }
     }
-    receiveMessage(currUserInfo, msgTxt.value);
-    msgTxt.value = '';
-    msgTxt.focus();
-};
+}
 
-
-function receiveMessage(userInfo, text) {
+function receiveMessage(userInfo, message) {
     var item = {
         img: userInfo.portrait,
-        info: userInfo.userName + ' : ' + text,
+        info: userInfo.userName + ' : ' + message,
         href: '#',
         close: true,
         speed: 6,
@@ -291,3 +294,21 @@ function receiveMessage(userInfo, text) {
     };
     $('body').barrager(item);
 }
+
+function heartCheck() {
+    setInterval(function () {
+        if (socket.readyState == 1) {
+            sendServerMessage('', 'ping');
+        } else {
+            createWebSocket();
+        }
+    }, 30 * 1000)
+}
+
+function init() {
+    createWebSocket();
+    bindBtnEvent();
+    heartCheck();
+}
+
+window.onload = init;
