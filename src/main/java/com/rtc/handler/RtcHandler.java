@@ -48,18 +48,12 @@ public class RtcHandler {
 
     private Map userInfo = new HashMap();
 
-//    public RtcHandler() {
-//        objectMapper = SpringContext.getBean(ObjectMapper.class);
-//    }
-
     /**
      * 连接建立成功调用的方法
      */
     @OnOpen
     public void onOpen(Session session) {
-
         ObjectMapper objectMapper = getObjectMapper();
-
         this.session = session;
         this.userId = session.getId();
         if (webSocketMap.containsKey(userId)) {
@@ -114,27 +108,28 @@ public class RtcHandler {
     public void onMessage(String message) throws IOException {
         RtcHandler that = this;
         log.info("用户消息:" + userId + ",报文:" + message);
-        //可以群发消息
-        //消息保存到数据库、redis
-        if (StringUtils.isNotBlank(message)) {
-
-            ObjectMapper objectMapper = getObjectMapper();
-            Map infoMap = objectMapper.readValue(message, Map.class);
-            Object sendTo = infoMap.get("sendTo");
-            if (sendTo != null) {
-                webSocketMap.get(sendTo).sendMessage(message);
-                return;
-            }
-            webSocketMap.forEach((k, y) -> {
-                try {
-                    if (y != that) {
-                        y.sendMessage(message);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
+        if (StringUtils.isBlank(message)) {
+            return;
         }
+        ObjectMapper objectMapper = getObjectMapper();
+        Map infoMap = objectMapper.readValue(message, Map.class);
+        Object sendTo = infoMap.get("sendTo");
+        if (sendTo != null) {
+            webSocketMap.get(sendTo).sendMessage(message);
+            return;
+        }
+        if ("ping".equals(infoMap.get("event"))) {
+            return;
+        }
+        webSocketMap.forEach((k, v) -> {
+            try {
+                if (v != that) {
+                    v.sendMessage(message);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     /**
@@ -153,7 +148,6 @@ public class RtcHandler {
     public void sendMessage(String message) throws IOException {
         this.session.getBasicRemote().sendText(message);
     }
-
 
     /**
      * 发送自定义消息
