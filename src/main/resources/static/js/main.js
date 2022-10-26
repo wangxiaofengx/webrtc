@@ -8,9 +8,9 @@ var msgTxt = document.querySelector('#msgTxt');
 var title = document.title;
 var connectConfig = {
     "iceServers": [{
-        "url": "stun:olddriver.online"
+        "url": "stun:" + location.hostname
     }, {
-        "url": "turn:olddriver.online", username: "olddriver", credential: "olddriver"
+        "url": "turn:" + location.hostname, username: "olddriver", credential: "olddriver"
     }]
 };
 var headPhoto = ['images/heisenberg.png', 'images/heisenberg.png', 'images/haha.gif', 'images/mj.gif', 'images/yaseng.png'];
