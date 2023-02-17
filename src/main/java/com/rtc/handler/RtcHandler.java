@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ServerEndpoint("/websocket/{sid}")
+@ServerEndpoint("/chat/websocket/{sid}")
 @Component
 public class RtcHandler {
 

@@ -1,8 +1,12 @@
 server:
   port: 9090
-  servlet:
-    context-path: '/chat'
 logging:
   level:
     root: info
+openai:
+  key: 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
+spring:
+  mvc:
+    async:
+      request-timeout: -1
 
