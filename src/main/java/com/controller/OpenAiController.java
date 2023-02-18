@@ -2,25 +2,26 @@ package com.controller;
 
 import com.bo.OpenAiResult;
 import com.bo.SimpleJsonResult;
+import com.config.OpenAiConfig;
+import com.util.IpUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.servlet.http.HttpServletRequest;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.Instant;
+import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/openai")
@@ -29,16 +30,31 @@ public class OpenAiController {
 
     private final RestTemplate restTemplate;
 
-    @Value("${openai.key}")
-    String openaiKey;
+    private final OpenAiConfig openAiConfig;
 
-    public OpenAiController(RestTemplate restTemplate) {
+    public OpenAiController(RestTemplate restTemplate, OpenAiConfig openAiConfig) {
         this.restTemplate = restTemplate;
+        this.openAiConfig = openAiConfig;
     }
+
+    private String currDate = DateFormatUtils.format(new Date(), "yyyy-MM-dd");
+    private AtomicInteger count = new AtomicInteger(0);
+
+    private static final int thresholdValue = 200;
 
     @RequestMapping("/question")
     public Callable<SimpleJsonResult> index(String prompt, HttpServletRequest request) {
         return () -> {
+            String curData = DateFormatUtils.format(new Date(), "yyyy-MM-dd");
+            if (StringUtils.equals(this.currDate, curData)) {
+                if (count.get() >= thresholdValue) {
+                    return SimpleJsonResult.failureJsonResult("当天额度已用完，请明天再来使用，谢谢！");
+                }
+            } else {
+                this.currDate = curData;
+                count.set(0);
+            }
+            count.incrementAndGet();
             Map<String, Object> body = new HashMap<>(16);
             body.put("prompt", prompt);
             body.put("max_tokens", 2048);
@@ -49,34 +65,16 @@ public class OpenAiController {
             body.put("model", "text-davinci-003");
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.setContentType(MediaType.APPLICATION_JSON);
-            httpHeaders.set("Authorization", "Bearer " + openaiKey);
+            httpHeaders.set("Authorization", "Bearer " + Stream.of(openAiConfig.getKeys()).findAny().get());
             HttpEntity httpEntity = new HttpEntity(body, httpHeaders);
+            log.info("发送人IP：{}", IpUtil.getIp(request));
+            log.info("发送内容：{}", prompt);
             OpenAiResult openAiResult = restTemplate.postForObject("https://api.openai.com/v1/completions", httpEntity, OpenAiResult.class);
             List<OpenAiResult.Choice> choices = openAiResult.getChoices();
-            log.info("发送人IP：{}", getIp(request));
-            log.info("发送内容：{}", prompt);
             log.info("返回内容：{}", choices.stream().map(OpenAiResult.Choice::getText).collect(Collectors.joining()));
             return SimpleJsonResult.successJsonResult(choices);
         };
     }
 
-    private String getIp(HttpServletRequest request) {
-        String ip = request.getHeader("x-forwarded-for");
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_CLIENT_IP");
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_X_FORWARDED_FOR");
-        }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        return ip;
-    }
+
 }

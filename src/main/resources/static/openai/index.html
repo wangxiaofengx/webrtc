@@ -34,7 +34,7 @@
     </div>
 
     <div style="position: fixed;bottom: 30px;">
-        <input v-model="message" style="line-height: 36px;"/>
+        <input v-model="message" @keyup.enter.native="sendMsg" style="line-height: 36px;"/>
         <div v-if="loading" class="spinner-border" role="status">
             <span class="sr-only"></span>
         </div>
@@ -67,12 +67,17 @@
                     data: {prompt: this.message},
                     dataType: 'json',
                     success: function (res) {
-                        item.answer = res.data[0].text;
                         that.loading = false;
+                        if (!res.success) {
+                            item.answer = res.data;
+                            return;
+                        }
+                        item.answer = res.data[0].text;
+
                     },
                     error: function () {
-                        item.answer = '服务器出现错误，请稍后重试';
                         that.loading = false;
+                        item.answer = '服务器出现错误，请稍后重试';
                     }
                 });
                 this.message = '';

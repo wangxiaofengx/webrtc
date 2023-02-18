@@ -4,7 +4,12 @@ logging:
   level:
     root: info
 openai:
-  key: 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
+  keys:
+    - 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
+    - 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
+    - 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
+    - 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
+    - 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
 spring:
   mvc:
     async:
