@@ -9,5 +9,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "openai")
 public class OpenAiConfig {
 
+    int limit;
+
     String[] keys;
 }

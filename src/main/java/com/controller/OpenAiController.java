@@ -47,7 +47,7 @@ public class OpenAiController {
         return () -> {
             String curData = DateFormatUtils.format(new Date(), "yyyy-MM-dd");
             if (StringUtils.equals(this.currDate, curData)) {
-                if (count.get() >= thresholdValue) {
+                if (count.get() >= openAiConfig.getLimit()) {
                     return SimpleJsonResult.failureJsonResult("当天额度已用完，请明天再来使用，谢谢！");
                 }
             } else {

@@ -4,6 +4,7 @@ logging:
   level:
     root: info
 openai:
+  limit: 50
   keys:
     - 123
 spring:
